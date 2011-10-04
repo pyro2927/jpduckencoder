@@ -249,6 +249,7 @@ public class Encoder
 							file.add(Byte.valueOf((byte)0));
 						}
 					}
+					//if we only have ALT, pad it with a 0
 					else {
 						file.add(Byte.valueOf((byte)0));
 					}
