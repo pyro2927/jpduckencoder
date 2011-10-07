@@ -5,6 +5,8 @@ Based off of the [duckencoder](http://www.usbrubberducky.com/wiki/doku.php?id=do
 
 Changelog
 ---------
+### v0.2 ###
+* Fixed DEFAULT_DELAY so it works with each iteration
 ### v0.1 ###
 * Ported from v1.0 of Hack5 duckencoder
 * Adds in --replacern flag allowing users with text editors that use CRLF line encodings to strip out CR
