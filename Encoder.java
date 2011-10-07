@@ -3,7 +3,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.text.BadLocationException;
@@ -12,14 +11,20 @@ import javax.swing.text.rtf.RTFEditorKit;
 
 public class Encoder
 {
-	static boolean debug = true;
+	static boolean debug = false;
 	public static void main(String[] args)
 	{
 
 		boolean rnFix = false;
+		String exePayload = null;
+		int chunksize = 256;
 
-		String helpStr = "JPDuckEncoder v0.1, based off of Hak5 Duck Encoder 1.0\nAll original work done by Hak5, I've just added some slight modifications\n\n" + 
-		"JPFixes:\n* Adding the flag --replacern will fix most issues users are having with carriage return\n" + 
+		String helpStr = "JPDuckEncoder v0.2, based off of Hak5 Duck Encoder 1.0\nAll original work done by Hak5, I've just added some slight modifications\n\n" + 
+		"JPFixes:\n" +
+		"v0.2\n" +
+		"DEFAULT_DELAY now works correctly\n" +
+		"v0.1\n" +
+		"* Adding the flag --replacern will fix most issues users are having with carriage return\n" + 
 		"* Fixed error where setting DEFAULTDELAY or DELAY would result in an \"Error on line\" message\n" + 
 		"\nusage: duckencode -i [file ..]\t\t\tencode specified file\n   or: duckencode -i [file ..] -o [file ..]\tencode to specified file\n\nArguments:\n   -i [file ..] \t\tInput File\n   -o [file ..] \t\tOutput File\n\nScript Commands:\n   ALT [Char | END | (ESCAPE | ESC) | F1...F12 | SPACE  | TAB]\n   BREAK | PAUSE\n   CAPSLOCK\n   CONTROL | CTRL [(BREAK | PAUSE) | Char | F1...F12 | (ESCAPE | ESC)]\n   DEFAULT_DELAY | DEFAULTDELAY [Time in millisecond * 10]\n   DELAY [Time in millisecond * 10]\n   DELETE\n   DOWNARROW | DOWN\n   END\n   ESCAPE | ESC\n   F1...F12\n   HOME\n   INSERT\n   LEFTARROW | LEFT\n   MENU | APP\n   NUMLOCK\n   PAGEDOWN\n   PAGEUP\n   PRINTSCREEN\n   REM\n   RIGHTARROW | RIGHT\n   SCROLLLOCK\n   SHIFT [ DELETE | HOME | INSERT | PAGEUP | PAGEDOWN | (WINDOWS | GUI)\n         | (UPARROW | DOWNARROW |LEFTARROW | RIGHTARROW) | TAB]\n   SPACE\n   STRING [a...z A...Z 0..9 !...) `~ += _- \"' :; <, >. ?/ \\|]\n   TAB\n   UPARROW | UP\n   WINDOWS | GUI\n";
 
@@ -47,15 +52,72 @@ public class Encoder
 			} else if (args[i].equals("-o"))
 			{
 				i++; outputFile = args[i];
-				//remove CR of CRLF for Windows users mostly
+			/**********************************
+			 * Joe's additional arg handlers
+			 **********************************/
+			//remove CR of CRLF for Windows users mostly
 			} else if(args[i].equals("--replacern")){ 
 				rnFix = true;
-			} else {
+			}/* else if(args[i].equals("--exepayload")){
+				//gather our EXE payload
+				i++; 
+				exePayload = args[i];
+			}*/
+			
+			else {
 				System.out.println(helpStr);
 				break;
 			}
 		}
 
+		/*
+		//if we have an exe payload, try to read it in encode it in a pre-canned payload to be typed up
+		if(exePayload != null)
+		{
+			try {
+				//first, try to open the file
+				
+				inputFile = "temp.txt";
+				
+				//setup our files
+				File temp = new File(inputFile);
+				File payload = new File(exePayload);
+				byte[] buf = new byte[(int)payload.length()];
+				DataInputStream in = new DataInputStream(new FileInputStream(payload));
+				in.readFully(buf);
+				String payloadString = new String(buf);
+				
+				//now that we have our payload string, try to dump it into a 
+				//FileOutputStream outStream = new FileOutputStream(temp);
+				FileOutputStream tempWriter = new FileOutputStream(temp);
+				tempWriter.write(new String("DELAY 1000\n").getBytes());
+				tempWriter.write(new String("GUI r\n").getBytes());
+				tempWriter.write(new String("STRING notepad.exe\n").getBytes());
+				tempWriter.write(new String("ENTER\n").getBytes());
+				
+				//now string out our hex values
+				int offset = 0;
+				//write our buffer to this text file
+				while(offset < buf.length){
+					//write some string
+					//make sure we don't exceed our string length
+					//tempWriter.write("STRING " + payloadString.substring(offset, (chunksize + offset < payloadString.length() - 1 ? chunksize + offset : payloadString.length() - 1) ) + "\n");
+					tempWriter.write(new String("STRING ").getBytes());
+					tempWriter.write(new String(buf, offset, (chunksize + offset < buf.length - 1 ? chunksize : buf.length - ( 1 + chunksize + offset )) ).getBytes() );
+					tempWriter.write(new String("\n").getBytes());
+					offset += chunksize;
+				}
+				
+				//now hotkey to save the document
+				tempWriter.write(new String("CTRL s\n").getBytes());
+				
+				tempWriter.close();
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}*/
+		
 		if (inputFile != null) {
 			String scriptStr = null;
 
@@ -227,7 +289,6 @@ public class Encoder
 					file.add(Byte.valueOf((byte)1));
 					//ALT+ combos
 				} else if (instruction[0].equals("ALT")) {
-					file.add(Byte.valueOf((byte)-30));
 					if (instruction.length != 1) {
 						if ((instruction[1].equals("ESCAPE")) || (instruction[1].equals("ESC")))
 							file.add(Byte.valueOf((byte)41));
@@ -253,6 +314,7 @@ public class Encoder
 					else {
 						file.add(Byte.valueOf((byte)0));
 					}
+					file.add(Byte.valueOf((byte)-30));
 				}
 				//enter key
 				else if (instruction[0].equals("ENTER")) {
@@ -412,17 +474,23 @@ public class Encoder
 				//0 -1 0 -1 0 -1 0 10 is the styling for delays
 				//start with 0, -1 for each 255, then remainder
 				//a zero goes in front of every delay
-				if (((delayOverride ? 0 : 1) & (defaultDelay != 0 ? 1 : 0)) != 0)
-					while (defaultDelay > 0) {
+				if (!delayOverride && defaultDelay > 0){
+					if (debug) {
+						System.out.println("Adding in default delay");
+					}
+					//copy the defaultDelay into a new integer so we can use it more than once
+					int temp = new Integer(defaultDelay);
+					while (temp > 0) {
 						file.add(Byte.valueOf((byte)0));
-						if (defaultDelay > 255) {
+						if (temp > 255) {
 							file.add(Byte.valueOf((byte)-1));
-							defaultDelay -= 255;
+							temp -= 255;
 						} else {
-							file.add(Byte.valueOf((byte)defaultDelay));
-							defaultDelay = 0;
+							file.add(Byte.valueOf((byte)temp));
+							temp = 0;
 						}
 					}
+				}
 			}
 			//shit something fucked up, print an error message
 			catch (Exception e) {
